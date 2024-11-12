@@ -1,26 +1,23 @@
 import os, tempfile
 from pathlib import Path
 
-# from langchain_community.chains import RetrievalQA, ConversationalRetrievalChain
 from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.chat_models import ChatOpenAI
-from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers.ensemble import EnsembleRetriever
 from langchain_community.retrievers.bm25 import BM25Retriever
 from langchain_community.vectorstores import FAISS
 from langchain_community.retrievers import BM25Retriever
-from langchain_core.documents import Document
 from langchain.text_splitter import MarkdownTextSplitter
 from langchain_community.document_loaders import DirectoryLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-# from langchain.memory import ConversationBufferMemory
-# from langchain.memory.chat_message_histories import StreamlitChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+# from src.generator.llm import rag_module
+import openai
+from openai import OpenAI
+import ell
 
-from src.generator.llm import rag_module
 # from llama_document_parser import llama_document_parser
 import streamlit as st
-from dotenv import load_dotenv
-load_dotenv()
+
 # https://github.com/mirabdullahyaser/Retrieval-Augmented-Generation-Engine-with-LangChain-and-Streamlit
 
 TMP_DIR = Path(__file__).resolve().parent.joinpath('data', 'tmp')
@@ -28,9 +25,35 @@ LOCAL_VECTOR_STORE_DIR = Path(__file__).resolve().parent.joinpath('data', 'vecto
 
 st.set_page_config(page_title="Course Generation Application")
 st.title("Course Generation")
+os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
+# # Initialize ell logging
+# ell.init(store='./logdir', autocommit=True, verbose=False)
+
+# # Existing ell-based LLM functions
+# @ell.simple(model="gpt-4o-mini",client=OpenAI(api_key=openai.api_key))
+# def rag_module(query: str, context: str) -> str:
+#     """
+#     You are a course content planner to help with creating course outline and course content according to handbook information.
+#     Provided with handbook curriculum information and intended learning outcome with other details , user can ask information related to the course handbook.
+#     If user asking to list handbook module , provide available module in the handbook.
+#     If user asking to provide inetnded learning otucome, provide only the intended learning outcome without altering any words.
+#     Do not hallucinate and add additional information outside of this document.
+#     """
+#     return f""" 
+#     Given the following query and relevant context, please provide a comprehensive and accurate response:
+
+#     Query: {query}
+
+#     Relevant context:
+#     {context}
+
+#     Response:
+#     """
 
 if not os.path.exists('data/tmp'):
     os.makedirs('data/tmp')
+
+
 def load_documents():
     # Call llamaparse for parsing
     loader = DirectoryLoader(TMP_DIR.as_posix(), glob='**/*.pdf')
@@ -76,20 +99,56 @@ def query_llm(retriever, query):
     # )
     # result = qa_chain({'question': query, 'chat_history': st.session_state.messages})
     # result = result['answer']
+
+
+
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2,
+        openai_api_key=st.session_state.openai_api_key
+    )
+    prompt = ChatPromptTemplate.from_messages([
+    ("system",
+    """You are a course content planner to help with creating course outline and course content according to handbook information.
+    Provided with handbook curriculum information and intended learning outcome with other details , user can ask information related to the course handbook.
+    If user asking to list handbook module , provide available module in the handbook.
+    If user asking to provide inetnded learning otucome, provide only the intended learning outcome without altering any words.
+    Do not hallucinate and add additional information outside of this document.
+    """),
+    ("human",
+     """ 
+    Given the following query and relevant context, please provide a comprehensive and accurate response:
+
+    Query: {query}
+
+    Relevant context:
+    {context}
+
+    Response:
+    """)])
     content_retrieved = retriever.invoke(query)
     content_concat = "\n\n".join(doc.page_content for doc in content_retrieved)
-    result = rag_module(query,content_concat)
-    st.session_state.messages.append((query, result))
-    return result
+    chain = prompt | llm
+    response =chain.invoke({
+        "query":query,
+        "context":content_concat
+    })
+    # result = rag_module(query,content_concat)
+    st.session_state.messages.append((query, response.content))
+    return response.content
 
 def input_fields():
     #
     with st.sidebar:
         #
-        # if "OPENAI_API_KEY" in st.secrets:
-        #     st.session_state.openai_api_key = st.secrets.OPENAI_API_KEY
-        # else:
-        st.session_state.openai_api_key = st.text_input("OpenAI API key", type="password")
+        if "OPENAI_API_KEY" in st.secrets:
+            st.session_state.openai_api_key = st.secrets.OPENAI_API_KEY
+        else:
+            st.session_state.openai_api_key = st.text_input("OpenAI API key", type="password")
+
     st.session_state.source_docs = st.file_uploader(label="Upload Documents", type="pdf", accept_multiple_files=True)
     #
 
@@ -126,6 +185,7 @@ def boot():
 
     input_fields()
     #
+    openai.api_key = st.session_state.openai_api_key
     st.button("Submit Documents", on_click=process_documents)
     #
     if "messages" not in st.session_state:
