@@ -12,8 +12,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 # from src.generator.llm import rag_module
 import openai
-from openai import OpenAI
-import ell
+import streamlit_authenticator as stauth
+import streamlit as st
+
+import yaml
+from yaml.loader import SafeLoader
 
 # from llama_document_parser import llama_document_parser
 import streamlit as st
@@ -26,29 +29,7 @@ LOCAL_VECTOR_STORE_DIR = Path(__file__).resolve().parent.joinpath('data', 'vecto
 st.set_page_config(page_title="Course Generation Application")
 st.title("Course Generation")
 os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
-# # Initialize ell logging
-# ell.init(store='./logdir', autocommit=True, verbose=False)
 
-# # Existing ell-based LLM functions
-# @ell.simple(model="gpt-4o-mini",client=OpenAI(api_key=openai.api_key))
-# def rag_module(query: str, context: str) -> str:
-#     """
-#     You are a course content planner to help with creating course outline and course content according to handbook information.
-#     Provided with handbook curriculum information and intended learning outcome with other details , user can ask information related to the course handbook.
-#     If user asking to list handbook module , provide available module in the handbook.
-#     If user asking to provide inetnded learning otucome, provide only the intended learning outcome without altering any words.
-#     Do not hallucinate and add additional information outside of this document.
-#     """
-#     return f""" 
-#     Given the following query and relevant context, please provide a comprehensive and accurate response:
-
-#     Query: {query}
-
-#     Relevant context:
-#     {context}
-
-#     Response:
-#     """
 
 if not os.path.exists('data/tmp'):
     os.makedirs('data/tmp')
@@ -201,6 +182,31 @@ def boot():
         st.chat_message("ai").write(response)
 
 if __name__ == '__main__':
-    #
-    boot()
+
+    print(st.secrets)
+    _secrets_to_config = {}
+    _secrets_to_config['usernames'] = {st.secrets['login']['user']:{"email":st.secrets['login']['email'],\
+                                                                    "name":st.secrets['login']['name'],\
+                                                                    "password":st.secrets['login']['password'],\
+                                                                    }}
+    authenticator = stauth.Authenticate(
+        _secrets_to_config,
+        st.secrets['login']['name'],
+        st.secrets['cookie']['key'],
+        st.secrets['cookie']['expiry_days'],
+    )
+
+    try:
+        authenticator.login()
+    except Exception as e:
+        st.error(e)
+    if st.session_state['authentication_status']:
+        authenticator.logout()
+        st.write(f'Welcome *{st.session_state["name"]}*')
+        # st.title('Some content')
+        boot()
+    elif st.session_state['authentication_status'] is False:
+        st.error('Username/password is incorrect')
+    elif st.session_state['authentication_status'] is None:
+        st.warning('Please enter your username and password')
     
