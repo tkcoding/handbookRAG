@@ -193,8 +193,7 @@ def process_documents():
             st.error(f"An error occurred: {e}")
 
 def boot():
-    # tab1, tab2 = st.tabs(["RAG Chat", "Course Generation"])
-# with tab1:
+
     input_fields()
     #
     openai.api_key = st.session_state.openai_api_key
@@ -223,10 +222,7 @@ def course_input():
         c5, c6 = st.columns([4,9])
         c7, c8 = st.columns([4,9])
         c9, c10 = st.columns([4,9])
-        c11, c12 = st.columns([4,9])
-        # c7, c8, c9, c10, c11, c12 = st.columns([6,6,6,6,6,6]) 
-        # with c1:
-            # course_theme = st.text_input("Course theme",value="Algebra")
+
         with c1:
             c1.markdown('Topic: :red[*]')
             course_topic = c2.text_input('topic',value="Algebra", **params)
@@ -244,7 +240,7 @@ def course_input():
             c9.markdown('Allocated time :red[*]')
             allocated_time = c10.text_input('',value="2 weeks",**params)     
   
-        input_fields()
+        # input_fields()
         submitButton = st.form_submit_button(label = 'Generate learning outcomes')
 
         if submitButton:
