@@ -307,29 +307,15 @@ def course_input():
             course description is as follows: {course_description}.
             Pre-requesite : {pre_requisites}
             Allocated time : {allocated_time}
-            Learning outcome should mainly comes from the following context if following context is related else context should be ignored and generate learning outcomes based on above conditions ONLY.
-            {content_retrieved}
 
         """
         # Section where it should add in what's the file input.
-        input_fields()
-        openai.api_key = st.session_state.openai_api_key
         prompt_text_input = st.text_area("Prompt input", value=prompt_template)
-        # st.button("Submit Documents", on_click=process_documents)
         submitButton = st.form_submit_button(
             label="Generate learning outcomes", on_click=process_documents
         )
 
         if submitButton:
-            process_documents()
-            # Do checking for field inserted.
-            # Create custom query accordingly
-            #
-            query = (
-                f"Extract topic on {course_topic} with respect to {course_description}"
-            )
-            content_retrieved = query_llm(st.session_state.retriever, query)
-            print(content_retrieved)
 
             settings = {}
             settings["course_topic"] = course_topic
@@ -337,7 +323,6 @@ def course_input():
             settings["target_audience"] = target_audience
             settings["pre_requisites"] = pre_requisites
             settings["allocated_time"] = allocated_time
-            settings["content_retrieved"] = content_retrieved
             # settings['other_features'] = "No other feature"
             GENERATE_TOC_PROMPT = f"""
             {prompt_text_input}
