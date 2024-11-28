@@ -250,6 +250,8 @@ def boot():
 
 # Notice that you can forward text_input parameters naturally
 def course_input():
+    langfuse_handler = CallbackHandler()
+
     with st.form(key="Form1"):
         params = {}
         params.setdefault("label_visibility", "collapsed")
@@ -323,7 +325,9 @@ def course_input():
 
         """
         # Section where it should add in what's the file input.
-        prompt_text_input = st.text_area("Prompt input", value=prompt_template)
+        prompt_text_input = st.text_area(
+            "Prompt input:red[*] - Editable for superuser", value=prompt_template
+        )
         submitButton = st.form_submit_button(label="Generate learning outcomes")
 
         if submitButton:
@@ -342,7 +346,10 @@ def course_input():
             generate_toc_prompt = ChatPromptTemplate.from_template(GENERATE_TOC_PROMPT)
             toc_chain = generate_toc_prompt | chat_model | StrOutputParser()
             st.subheader("Response", divider="gray")
-            st.info(toc_chain.invoke(settings), icon="ℹ️")
+            st.info(
+                toc_chain.invoke(settings, config={"callbacks": [langfuse_handler]}),
+                icon="ℹ️",
+            )
 
 
 if __name__ == "__main__":
