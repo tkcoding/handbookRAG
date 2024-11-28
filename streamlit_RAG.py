@@ -325,9 +325,7 @@ def course_input():
 
         """
         # Section where it should add in what's the file input.
-        prompt_text_input = st.text_area(
-            "Prompt input:red[*] - Editable for superuser", value=prompt_template
-        )
+        prompt_text_input = st.text_area("Prompt input", value=prompt_template)
         submitButton = st.form_submit_button(label="Generate learning outcomes")
 
         if submitButton:
