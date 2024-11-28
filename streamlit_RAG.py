@@ -10,6 +10,7 @@ from langchain.text_splitter import MarkdownTextSplitter
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+
 # from src.generator.llm import rag_module
 import openai
 import streamlit_authenticator as stauth
@@ -29,37 +30,40 @@ from langchain.schema.runnable import RunnableMap, RunnableLambda, RunnablePasst
 from langchain.schema.messages import BaseMessage, HumanMessage, AIMessage
 from langchain.prompts import MessagesPlaceholder
 from operator import itemgetter
+
 # https://github.com/mirabdullahyaser/Retrieval-Augmented-Generation-Engine-with-LangChain-and-Streamlit
 
-chat_model = ChatOpenAI(
-    model_name="gpt-4o-mini", temperature=0
+chat_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
+TMP_DIR = Path(__file__).resolve().parent.joinpath("data", "tmp")
+LOCAL_VECTOR_STORE_DIR = (
+    Path(__file__).resolve().parent.joinpath("data", "vector_store")
 )
-TMP_DIR = Path(__file__).resolve().parent.joinpath('data', 'tmp')
-LOCAL_VECTOR_STORE_DIR = Path(__file__).resolve().parent.joinpath('data', 'vector_store')
 
 st.set_page_config(page_title="Course Generation Application")
 st.title("Course Generation")
 os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
 
 
-if not os.path.exists('data/tmp'):
-    os.makedirs('data/tmp')
+if not os.path.exists("data/tmp"):
+    os.makedirs("data/tmp")
 
 
 def load_documents():
     # Call llamaparse for parsing
-    loader = DirectoryLoader(TMP_DIR.as_posix(), glob='**/*.pdf')
+    loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf")
     documents = loader.load()
     # file = open('./txt/handbook/handbook.txt', "r")
     # documents = file.read()
     return documents
 
+
 def split_documents(documents):
     # Use markdownsplitter
-    splitter = MarkdownTextSplitter(chunk_size = 2000, chunk_overlap=50)
+    splitter = MarkdownTextSplitter(chunk_size=2000, chunk_overlap=50)
     md_splitter = splitter.create_documents([documents[0].page_content])
     md_convert_splitter = [md.page_content for md in md_splitter]
     return md_convert_splitter
+
 
 def embeddings_on_local_vectordb(texts):
 
@@ -78,9 +82,14 @@ def embeddings_on_local_vectordb(texts):
     ensemble_retriever = EnsembleRetriever(
         retrievers=[bm25_retriever, faiss_retriever], weights=[0.5, 0.5]
     )
-    print('Embedding retriever',ensemble_retriever)
+    print("Embedding retriever", ensemble_retriever)
     return ensemble_retriever
 
+
+def extract_LO(retriever, query):
+    content_retrieved = retriever.invoke(query)
+    content_concat = "\n\n".join(doc.page_content for doc in content_retrieved)
+    return content_concat
 
 
 def query_llm(retriever, query):
@@ -97,7 +106,7 @@ def query_llm(retriever, query):
         max_tokens=None,
         timeout=None,
         max_retries=2,
-        openai_api_key=st.session_state.openai_api_key
+        openai_api_key=st.session_state.openai_api_key,
     )
     llm_chat = ChatOpenAI(
         model="gpt-4o-mini",
@@ -105,18 +114,22 @@ def query_llm(retriever, query):
         max_tokens=None,
         timeout=None,
         max_retries=2,
-        openai_api_key=st.session_state.openai_api_key
+        openai_api_key=st.session_state.openai_api_key,
     )
-    prompt = ChatPromptTemplate.from_messages([
-    ("system",
-    """You are a course content planner to help with creating course outline and course content according to handbook information.
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """You are a course content planner to help with creating course outline and course content according to handbook information.
     Provided with handbook curriculum information and intended learning outcome with other details , user can ask information related to the course handbook.
     If user asking to list handbook module , provide available module in the handbook.
     If user asking to provide inetnded learning otucome, provide only the intended learning outcome without altering any words.
     Do not hallucinate and add additional information outside of this document.
-    """),
-    ("human",
-     """ 
+    """,
+            ),
+            (
+                "human",
+                """
     Given the following query and relevant context, please provide a comprehensive and accurate response:
 
     Query: {query}
@@ -125,7 +138,10 @@ def query_llm(retriever, query):
     {context}
 
     Response:
-    """)])
+    """,
+            ),
+        ]
+    )
     content_retrieved = retriever.invoke(query)
     content_concat = "\n\n".join(doc.page_content for doc in content_retrieved)
 
@@ -141,49 +157,55 @@ def query_llm(retriever, query):
     #     "chat_history":st.session_state.messages
     #     }))
 
-
     chain = prompt | llm
-    response =chain.invoke({
-        "query":query,
-        "context":content_concat
-    })
+    response = chain.invoke({"query": query, "context": content_concat})
     # result = rag_module(query,content_concat)
     st.session_state.messages.append((query, response.content))
     return response.content
 
+
 def input_fields():
-    #
+    # Common field used by multiple tab
     with st.sidebar:
         #
         if "OPENAI_API_KEY" in st.secrets:
             st.session_state.openai_api_key = st.secrets.OPENAI_API_KEY
         else:
-            st.session_state.openai_api_key = st.text_input("OpenAI API key", type="password")
+            st.session_state.openai_api_key = st.text_input(
+                "OpenAI API key", type="password"
+            )
 
-    st.session_state.source_docs = st.file_uploader(label="Upload Documents", type="pdf", accept_multiple_files=True)
+    st.session_state.source_docs = st.file_uploader(
+        label="Upload Documents", type="pdf", accept_multiple_files=True
+    )
     #
 
 
 def process_documents():
-    if not st.session_state.openai_api_key or not st.session_state.source_docs:#or not st.session_state.pinecone_api_key or not st.session_state.pinecone_env or not st.session_state.pinecone_index or not st.session_state.source_docs:
+    # Common field used by multiple tab
+    if (
+        not st.session_state.openai_api_key or not st.session_state.source_docs
+    ):  # or not st.session_state.pinecone_api_key or not st.session_state.pinecone_env or not st.session_state.pinecone_index or not st.session_state.source_docs:
         st.warning(f"Please upload the documents and provide the missing fields.")
     else:
         try:
             for source_doc in st.session_state.source_docs:
-                with tempfile.NamedTemporaryFile(delete=False, dir=TMP_DIR.as_posix(), suffix='.pdf') as tmp_file:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, dir=TMP_DIR.as_posix(), suffix=".pdf"
+                ) as tmp_file:
                     tmp_file.write(source_doc.read())
                 #
                 documents = load_documents()
                 #
                 for _file in TMP_DIR.iterdir():
-                    print('within temp dirctory')
+                    print("within temp dirctory")
                     temp_file = TMP_DIR.joinpath(_file)
                     temp_file.unlink()
                 #
-                print('after temp directory')
+                print("after temp directory")
 
                 texts = split_documents(documents)
-                print('split text process...')
+                print("split text process...")
                 #
                 # if not st.session_state.pinecone_db:
                 st.session_state.retriever = embeddings_on_local_vectordb(texts)
@@ -191,6 +213,7 @@ def process_documents():
                 #     st.session_state.retriever = embeddings_on_pinecone(texts)
         except Exception as e:
             st.error(f"An error occurred: {e}")
+
 
 def boot():
 
@@ -203,8 +226,8 @@ def boot():
         st.session_state.messages = []
     #
     for message in st.session_state.messages:
-        st.chat_message('human').write(message[0])
-        st.chat_message('ai').write(message[1])    
+        st.chat_message("human").write(message[0])
+        st.chat_message("ai").write(message[1])
     #
     if query := st.chat_input():
         st.chat_message("human").write(query)
@@ -212,64 +235,57 @@ def boot():
         st.chat_message("ai").write(response)
 
 
- # Notice that you can forward text_input parameters naturally
+# Notice that you can forward text_input parameters naturally
 def course_input():
     with st.form(key="Form1"):
         params = {}
-        params.setdefault('label_visibility', 'collapsed')
-        c1, c2 =  st.columns([4,9])
-        c3, c4 = st.columns([4,9])
-        c5, c6 = st.columns([4,9])
-        c7, c8 = st.columns([4,9])
-        c9, c10 = st.columns([4,9])
+        params.setdefault("label_visibility", "collapsed")
+        c1, c2 = st.columns([4, 9])
+        c3, c4 = st.columns([4, 9])
+        c5, c6 = st.columns([4, 9])
+        c7, c8 = st.columns([4, 9])
+        c9, c10 = st.columns([4, 9])
 
         with c1:
-            c1.markdown('Topic: :red[*]')
-            course_topic = c2.text_input('topic',value="Algebra", **params)
+            c1.markdown("Topic: :red[*]")
+            course_topic = c2.text_input("topic", value="Algebra", **params)
         # c3.markdown(")
         with c3:
-            c3.markdown('Description :red[*]')
-            course_description = c4.text_input('description',value="Matrix operations",**params)
+            c3.markdown("Description :red[*]")
+            course_description = c4.text_input(
+                "description", value="Matrix operations", **params
+            )
         with c5:
-            c5.markdown('Target Audience :red[*]')
-            target_audience = c6.text_input('target_audience',value="Electrical engineering student",**params)
+            c5.markdown("Target Audience :red[*]")
+            target_audience = c6.text_input(
+                "target_audience", value="Electrical engineering student", **params
+            )
         with c7:
-            c7.markdown('Pre-requisites :red[*]')
-            pre_requisites = c8.text_input('',value="Basic algebra",**params)     
+            c7.markdown("Pre-requisites :red[*]")
+            pre_requisites = c8.text_input("", value="Basic algebra", **params)
         with c9:
-            c9.markdown('Allocated time :red[*]')
-            allocated_time = c10.text_input('',value="2 weeks",**params)     
-  
-        # input_fields()
-        submitButton = st.form_submit_button(label = 'Generate learning outcomes')
+            c9.markdown("Allocated time :red[*]")
+            allocated_time = c10.text_input("", value="2 weeks", **params)
 
-        if submitButton:
-            settings = {}
-            settings['course_topic'] = course_topic
-            settings['course_description'] = course_description
-            settings['target_audience'] = target_audience
-            settings['pre_requisites'] = pre_requisites
-            settings['allocated_time'] = allocated_time
-            # settings['other_features'] = "No other feature"
-            GENERATE_TOC_PROMPT = """
+        prompt_template = """
             Here is example of a table of contents in JSON format for some course about python data science for absolute beginner for 10 weeks allocated time.
             ###
             {{'Learning Outcomes': {{
-            'I. Data Foundations': 
+            'I. Data Foundations':
             {{
             'Duration':2 weeks,
             'A. Define the workflow, tools and approaches data scientists use to analyse data': {{}},
             'B. Apply the Data Science Workflow to solve a task': {{}},
             'C. Navigate through directories using the command line': {{}},
             'D. Conduct arithmetic and string operations in Python': {{}}}},
-            'II. Working with Data': 
+            'II. Working with Data':
             {{
             'Duration': 2 weeks,
             'A. Use DataFrames and Series to read data: {{}},
             'B. Define key principles of data visualization': {{}},
             'C. Create line plots, bar plots , histograms and box plots using Seaborn and Matplotlib': {{}},
             'D. Determine causality and sampling bias': {{}}}},
-            'III. Data Science Modeling': 
+            'III. Data Science Modeling':
             'Duration': 3 weeks
             {{'A. Define data modeling and linear regression': {{}},
             'B. Describe errors of bias and variance': {{}},
@@ -285,62 +301,103 @@ def course_input():
             ###
 
             Your task it to estimate each section with total duration needed , the amount of all section should add up to allocated time according to the template provided above.
+
             Scale the duration needed for each section with respect to the complexity and expertise level.
-            Generate learning objectives in the JSON format for a course about '{course_topic}' for {target_audience}.
+            Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience}.
             course description is as follows: {course_description}.
             Pre-requesite : {pre_requisites}
             Allocated time : {allocated_time}
+            Learning outcome should mainly comes from the following context if following context is related else context should be ignored and generate learning outcomes based on above conditions ONLY.
+            {content_retrieved}
 
-                
+        """
+        # Section where it should add in what's the file input.
+        input_fields()
+        openai.api_key = st.session_state.openai_api_key
+        prompt_text_input = st.text_area("Prompt input", value=prompt_template)
+        # st.button("Submit Documents", on_click=process_documents)
+        submitButton = st.form_submit_button(
+            label="Generate learning outcomes", on_click=process_documents
+        )
+
+        if submitButton:
+            process_documents()
+            # Do checking for field inserted.
+            # Create custom query accordingly
+            #
+            query = (
+                f"Extract topic on {course_topic} with respect to {course_description}"
+            )
+            content_retrieved = query_llm(st.session_state.retriever, query)
+            print(content_retrieved)
+
+            settings = {}
+            settings["course_topic"] = course_topic
+            settings["course_description"] = course_description
+            settings["target_audience"] = target_audience
+            settings["pre_requisites"] = pre_requisites
+            settings["allocated_time"] = allocated_time
+            settings["content_retrieved"] = content_retrieved
+            # settings['other_features'] = "No other feature"
+            GENERATE_TOC_PROMPT = f"""
+            {prompt_text_input}
+
             """
-
             generate_toc_prompt = ChatPromptTemplate.from_template(GENERATE_TOC_PROMPT)
-            toc_chain = (generate_toc_prompt | chat_model | StrOutputParser())
+            toc_chain = generate_toc_prompt | chat_model | StrOutputParser()
+            st.subheader("Response", divider="gray")
             st.info(toc_chain.invoke(settings), icon="ℹ️")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     print(st.secrets)
     _secrets_to_config = {}
-    _secrets_to_config['usernames'] = {st.secrets['login']['user']:{"email":st.secrets['login']['email'],\
-                                                                    "name":st.secrets['login']['name'],\
-                                                                    "password":st.secrets['login']['password'],\
-                                                                    }}
+    _secrets_to_config["usernames"] = {
+        st.secrets["login"]["user"]: {
+            "email": st.secrets["login"]["email"],
+            "name": st.secrets["login"]["name"],
+            "password": st.secrets["login"]["password"],
+        }
+    }
     authenticator = stauth.Authenticate(
         _secrets_to_config,
-        st.secrets['login']['name'],
-        st.secrets['cookie']['key'],
-        st.secrets['cookie']['expiry_days'],
+        st.secrets["login"]["name"],
+        st.secrets["cookie"]["key"],
+        st.secrets["cookie"]["expiry_days"],
     )
 
     try:
         authenticator.login()
     except Exception as e:
         st.error(e)
-    if st.session_state['authentication_status']:
+    if st.session_state["authentication_status"]:
         authenticator.logout()
         st.write(f'Welcome *{st.session_state["name"]}*')
-        my_button = st.sidebar.radio(label="Choose the application ", options=('Doc Chat','Course Generation')) 
+        my_button = st.sidebar.radio(
+            label="Choose the application ", options=("Doc Chat", "Course Generation")
+        )
         st.markdown(
             """<style>
         div[class*="stRadio"] > label > div[data-testid="stMarkdownContainer"] > p {
-            font-family: 'Roboto', sans-serif; 
+            font-family: 'Roboto', sans-serif;
             font-size: 18px;
             font-weight: 500;
             color: #091747;
             }
             </style>
-            """, unsafe_allow_html=True)
-        if my_button == 'Doc Chat':
+            """,
+            unsafe_allow_html=True,
+        )
+        if my_button == "Doc Chat":
             boot()
-        elif my_button == 'Course Generation': 
+        elif my_button == "Course Generation":
             course_input()
         else:
-            pass 
+            pass
 
         # boot()
-    elif st.session_state['authentication_status'] is False:
-        st.error('Username/password is incorrect')
-    elif st.session_state['authentication_status'] is None:
-        st.warning('Please enter your username and password')
-    
+    elif st.session_state["authentication_status"] is False:
+        st.error("Username/password is incorrect")
+    elif st.session_state["authentication_status"] is None:
+        st.warning("Please enter your username and password")
