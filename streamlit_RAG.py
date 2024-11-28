@@ -30,7 +30,15 @@ from langchain.schema.runnable import RunnableMap, RunnableLambda, RunnablePasst
 from langchain.schema.messages import BaseMessage, HumanMessage, AIMessage
 from langchain.prompts import MessagesPlaceholder
 from operator import itemgetter
+from langfuse import Langfuse
+from langfuse.callback import CallbackHandler
 
+
+# Get keys for your project from the project settings page
+# https://cloud.langfuse.com
+os.environ["LANGFUSE_PUBLIC_KEY"] = st.secrets.LANGFUSE_PUBLIC_KEY
+os.environ["LANGFUSE_SECRET_KEY"] = st.secrets.LANGFUSE_SECRET_KEY
+os.environ["LANGFUSE_HOST"] = st.secrets.LANGFUSE_HOST  # 🇪🇺 EU regio
 # https://github.com/mirabdullahyaser/Retrieval-Augmented-Generation-Engine-with-LangChain-and-Streamlit
 
 chat_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
@@ -40,7 +48,6 @@ LOCAL_VECTOR_STORE_DIR = (
 )
 
 st.set_page_config(page_title="Course Generation Application")
-st.title("Course Generation")
 os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
 
 
@@ -92,6 +99,7 @@ def extract_LO(retriever, query):
     return content_concat
 
 
+# @observe(as_type="generation")
 def query_llm(retriever, query):
     # qa_chain = ConversationalRetrievalChain.from_llm(
     #     llm=ChatOpenAI(model="gpt-4o-mini",temperature=0),
@@ -100,6 +108,8 @@ def query_llm(retriever, query):
     # )
     # result = qa_chain({'question': query, 'chat_history': st.session_state.messages})
     # result = result['answer']
+
+    langfuse_handler = CallbackHandler()
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0,
@@ -158,7 +168,10 @@ def query_llm(retriever, query):
     #     }))
 
     chain = prompt | llm
-    response = chain.invoke({"query": query, "context": content_concat})
+    response = chain.invoke(
+        {"query": query, "context": content_concat},
+        config={"callbacks": [langfuse_handler]},
+    )
     # result = rag_module(query,content_concat)
     st.session_state.messages.append((query, response.content))
     return response.content
@@ -373,8 +386,10 @@ if __name__ == "__main__":
             unsafe_allow_html=True,
         )
         if my_button == "Doc Chat":
+            st.title("Document Chat")
             boot()
         elif my_button == "Course Generation":
+            st.title("Learning outcome generation")
             course_input()
         else:
             pass
