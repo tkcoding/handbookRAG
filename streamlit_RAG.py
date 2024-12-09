@@ -13,15 +13,8 @@ from langchain_openai import ChatOpenAI
 
 # from src.generator.llm import rag_module
 import openai
-import streamlit_authenticator as stauth
 import streamlit as st
 from langchain.chains import ConversationalRetrievalChain
-
-# from llama_document_parser import llama_document_parser
-import streamlit as st
-
-import json
-
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from pydantic.v1 import BaseModel, Field
@@ -32,14 +25,28 @@ from langchain.prompts import MessagesPlaceholder
 from operator import itemgetter
 from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
+from common.utils import streamlit_utility
+from common.prompt import promptTemplate
+
+# Example of multiple credentials
+# credentials:
+#   usernames:
+#     jsmith:
+#       email: jsmith@gmail.com
+#       name: John Smith
+#       password: abc # To be replaced with hashed password
+#     rbriggs:
+#       email: rbriggs@gmail.com
+#       name: Rebecca Briggs
+#       password: def # To be replaced with hashed password
 
 
 # Get keys for your project from the project settings page
 # https://cloud.langfuse.com
-os.environ["LANGFUSE_PUBLIC_KEY"] = st.secrets.LANGFUSE_PUBLIC_KEY
-os.environ["LANGFUSE_SECRET_KEY"] = st.secrets.LANGFUSE_SECRET_KEY
-os.environ["LANGFUSE_HOST"] = st.secrets.LANGFUSE_HOST  # 🇪🇺 EU regio
-# https://github.com/mirabdullahyaser/Retrieval-Augmented-Generation-Engine-with-LangChain-and-Streamlit
+# os.environ["LANGFUSE_PUBLIC_KEY"] = st.secrets.LANGFUSE_PUBLIC_KEY
+# os.environ["LANGFUSE_SECRET_KEY"] = st.secrets.LANGFUSE_SECRET_KEY
+# os.environ["LANGFUSE_HOST"] = st.secrets.LANGFUSE_HOST
+# os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
 
 chat_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
 TMP_DIR = Path(__file__).resolve().parent.joinpath("data", "tmp")
@@ -48,8 +55,6 @@ LOCAL_VECTOR_STORE_DIR = (
 )
 
 st.set_page_config(page_title="Course Generation Application")
-os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
-
 
 if not os.path.exists("data/tmp"):
     os.makedirs("data/tmp")
@@ -59,8 +64,6 @@ def load_documents():
     # Call llamaparse for parsing
     loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf")
     documents = loader.load()
-    # file = open('./txt/handbook/handbook.txt', "r")
-    # documents = file.read()
     return documents
 
 
@@ -89,7 +92,6 @@ def embeddings_on_local_vectordb(texts):
     ensemble_retriever = EnsembleRetriever(
         retrievers=[bm25_retriever, faiss_retriever], weights=[0.5, 0.5]
     )
-    print("Embedding retriever", ensemble_retriever)
     return ensemble_retriever
 
 
@@ -99,7 +101,6 @@ def extract_LO(retriever, query):
     return content_concat
 
 
-# @observe(as_type="generation")
 def query_llm(retriever, query):
     # qa_chain = ConversationalRetrievalChain.from_llm(
     #     llm=ChatOpenAI(model="gpt-4o-mini",temperature=0),
@@ -118,14 +119,14 @@ def query_llm(retriever, query):
         max_retries=2,
         openai_api_key=st.session_state.openai_api_key,
     )
-    llm_chat = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0,
-        max_tokens=None,
-        timeout=None,
-        max_retries=2,
-        openai_api_key=st.session_state.openai_api_key,
-    )
+    # llm_chat = ChatOpenAI(
+    #     model="gpt-4o-mini",
+    #     temperature=0,
+    #     max_tokens=None,
+    #     timeout=None,
+    #     max_retries=2,
+    #     openai_api_key=st.session_state.openai_api_key,
+    # )
     prompt = ChatPromptTemplate.from_messages(
         [
             (
@@ -133,7 +134,7 @@ def query_llm(retriever, query):
                 """You are a course content planner to help with creating course outline and course content according to handbook information.
     Provided with handbook curriculum information and intended learning outcome with other details , user can ask information related to the course handbook.
     If user asking to list handbook module , provide available module in the handbook.
-    If user asking to provide inetnded learning otucome, provide only the intended learning outcome without altering any words.
+    If user asking to provide intended learning otucome, provide only the intended learning outcome without altering any words.
     Do not hallucinate and add additional information outside of this document.
     """,
             ),
@@ -188,71 +189,73 @@ def input_fields():
                 "OpenAI API key", type="password"
             )
 
-    st.session_state.source_docs = st.file_uploader(
-        label="Upload Documents", type="pdf", accept_multiple_files=True
-    )
-    #
+    # st.session_state.source_docs = st.file_uploader(
+    #     label="Uploads document", type="pdf", accept_multiple_files=True
+    # )
 
 
 def process_documents():
     # Common field used by multiple tab
-    if (
-        not st.session_state.openai_api_key or not st.session_state.source_docs
-    ):  # or not st.session_state.pinecone_api_key or not st.session_state.pinecone_env or not st.session_state.pinecone_index or not st.session_state.source_docs:
+    if not st.session_state.openai_api_key or not st.session_state.source_docs:
         st.warning(f"Please upload the documents and provide the missing fields.")
     else:
         try:
+            all_doc_text = []
             for source_doc in st.session_state.source_docs:
                 with tempfile.NamedTemporaryFile(
                     delete=False, dir=TMP_DIR.as_posix(), suffix=".pdf"
                 ) as tmp_file:
                     tmp_file.write(source_doc.read())
-                #
                 documents = load_documents()
-                #
                 for _file in TMP_DIR.iterdir():
-                    print("within temp dirctory")
                     temp_file = TMP_DIR.joinpath(_file)
                     temp_file.unlink()
-                #
-                print("after temp directory")
-
                 texts = split_documents(documents)
-                print("split text process...")
-                #
-                # if not st.session_state.pinecone_db:
-                st.session_state.retriever = embeddings_on_local_vectordb(texts)
-                # else:
-                #     st.session_state.retriever = embeddings_on_pinecone(texts)
+                all_doc_text += texts
+            st.session_state.retriever = embeddings_on_local_vectordb(all_doc_text)
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
 
-def boot():
+def chat_widget():
 
     input_fields()
-    #
     openai.api_key = st.session_state.openai_api_key
-    st.button("Submit Documents", on_click=process_documents)
-    #
+    # st.button("Submit Documents", on_click=process_documents)
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    #
     for message in st.session_state.messages:
         st.chat_message("human").write(message[0])
         st.chat_message("ai").write(message[1])
-    #
     if query := st.chat_input():
         st.chat_message("human").write(query)
-        response = query_llm(st.session_state.retriever, query)
+        if "retriever" not in st.session_state:
+            response = "No document provided"
+        else:
+            response = query_llm(st.session_state.retriever, query)
         st.chat_message("ai").write(response)
 
 
 # Notice that you can forward text_input parameters naturally
 def course_input():
     langfuse_handler = CallbackHandler()
+    promptTemplateHandler = promptTemplate()
+    prompt_template_with_context = promptTemplateHandler.LOPromptWithContext()
+    prompt_template_wo_context = promptTemplateHandler.LOPromptWithoutContext()
+
+    # st.subheader("Optional: Upload document related to learning outcomes", divider="gray")
+
+    # st.session_state.source_docs = st.file_uploader(
+    #         label="", type="pdf", accept_multiple_files=True)
+    # # might need to replace this part.
+    # st.button("Submit document",on_click=process_documents,key="LO_upload")
+    st.subheader("Required: Fill in course details", divider="gray")
 
     with st.form(key="Form1"):
+        settings = {}
+        settings["context"] = "No document context"
+        prompt_text_input = prompt_template_wo_context
+
         params = {}
         params.setdefault("label_visibility", "collapsed")
         c1, c2 = st.columns([4, 9])
@@ -260,90 +263,169 @@ def course_input():
         c5, c6 = st.columns([4, 9])
         c7, c8 = st.columns([4, 9])
         c9, c10 = st.columns([4, 9])
+        c11, c12 = st.columns([4, 9])
 
         with c1:
             c1.markdown("Topic: :red[*]")
+            c1.markdown(
+                "<span style='background-color:rgba(173, 216, 230);font-size: 12px;'>e.g. Algebra,Data Processing</span>",
+                unsafe_allow_html=True,
+            )
             course_topic = c2.text_input("topic", value="Algebra", **params)
         # c3.markdown(")
         with c3:
             c3.markdown("Description :red[*]")
+            c3.markdown(
+                "<span style='background-color:rgba(173, 216, 230);font-size: 12px;'>e.g. Introduction to matrix</span>",
+                unsafe_allow_html=True,
+            )
             course_description = c4.text_input(
                 "description", value="Matrix operations", **params
             )
         with c5:
             c5.markdown("Target Audience :red[*]")
+            c5.markdown(
+                "<span style='background-color:rgba(173, 216, 230);font-size: 12px;'>e.g. Engineering student</span>",
+                unsafe_allow_html=True,
+            )
             target_audience = c6.text_input(
                 "target_audience", value="Electrical engineering student", **params
             )
         with c7:
             c7.markdown("Pre-requisites :red[*]")
+            c7.markdown(
+                "<span style='background-color:rgba(173, 216, 230);font-size: 12px;'>e.g. Basic math operation</span>",
+                unsafe_allow_html=True,
+            )
             pre_requisites = c8.text_input("", value="Basic algebra", **params)
         with c9:
             c9.markdown("Allocated time :red[*]")
+            c9.markdown(
+                "<span style='background-color:rgba(173, 216, 230);font-size: 12px;'>e.g. 2 weeks, 50 hours, 2 months</span>",
+                unsafe_allow_html=True,
+            )
             allocated_time = c10.text_input("", value="2 weeks", **params)
 
-        prompt_template = """
-            Here is example of a table of contents in JSON format for some course about python data science for absolute beginner for 10 weeks allocated time.
-            ###
-            {{'Learning Outcomes': {{
-            'I. Data Foundations':
-            {{
-            'Duration':2 weeks,
-            'A. Define the workflow, tools and approaches data scientists use to analyse data': {{}},
-            'B. Apply the Data Science Workflow to solve a task': {{}},
-            'C. Navigate through directories using the command line': {{}},
-            'D. Conduct arithmetic and string operations in Python': {{}}}},
-            'II. Working with Data':
-            {{
-            'Duration': 2 weeks,
-            'A. Use DataFrames and Series to read data: {{}},
-            'B. Define key principles of data visualization': {{}},
-            'C. Create line plots, bar plots , histograms and box plots using Seaborn and Matplotlib': {{}},
-            'D. Determine causality and sampling bias': {{}}}},
-            'III. Data Science Modeling':
-            'Duration': 3 weeks
-            {{'A. Define data modeling and linear regression': {{}},
-            'B. Describe errors of bias and variance': {{}},
-            'C. Build a k-nearest neighbors model using the scikit-learn library': {{}},
-            'D. Evaluate a model using metrics such as classification accuracy/error, confusion matrix, ROC/AOC curves and loss functions': {{}}}},
-            'IV. Data Science Applications':
-            'Duration' : 3 weeks
-            {{'A. Demonstrate how to tokenize natural language text': {{}},
-            'B. Perform text classification model using scikit-learn, CountVectorizer, TfidfVectorizer, and TextBlog': {{}},
-            'C. Create rolling means and plot time series data': {{}},
-            'D. Explore an additional data science topic based on class interest. Options include: clustering, decision trees, robust regression and deploying model with Flask': {{}}}},
-            'E. Final Project: Complete a capstone project on data science real world application': {{}}}}}}
-            ###
+        with c11:
+            c11.markdown("Langugage selected :red[*]")
+            language_selected = c12.selectbox(
+                "", ("English", "Chinese", "Russian"), **params
+            )
 
-            Your task it to estimate each section with total duration needed , the amount of all section should add up to allocated time according to the template provided above.
-
-            Scale the duration needed for each section with respect to the complexity and expertise level.
-            Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience}.
-            course description is as follows: {course_description}.
-            Pre-requesite : {pre_requisites}
-            Allocated time : {allocated_time}
-
-        """
         # Section where it should add in what's the file input.
-        prompt_text_input = st.text_area("Prompt input", value=prompt_template)
+
+        # prompt_text_input = st.text_area("Prompt input", value=prompt_template_with_context)
         submitButton = st.form_submit_button(label="Generate learning outcomes")
-
         if submitButton:
+            if len(st.session_state.source_docs) >= 1:
+                extraction_query = f"""
+                    Extract learning outcomes that is related to {course_description} on the topic of {course_topic}
+                """
+                langfuse_handler = CallbackHandler()
+                llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    temperature=0,
+                    max_tokens=None,
+                    timeout=None,
+                    max_retries=2,
+                    openai_api_key=st.session_state.openai_api_key,
+                )
+                prompt = ChatPromptTemplate.from_messages(
+                    [
+                        (
+                            "system",
+                            """
+                            You are a course content planner to help with creating course outline and course content according to handbook information.
+                            Provided with handbook curriculum information and intended learning outcome with other details , user can ask information related to the course handbook.
+                            If user asking to list handbook module , provide available module in the handbook.
+                            If user asking to provide intended learning otucome, provide only the intended learning outcome without altering any words.
+                            Do not hallucinate and add additional information outside of this document.
+                            """,
+                        ),
+                        (
+                            "human",
+                            """
+                Given the following query and relevant context, please provide a comprehensive and accurate response:
 
-            settings = {}
+                Query: {query}
+
+                Relevant context:
+                {context}
+
+                Response:
+                """,
+                        ),
+                    ]
+                )
+                chain = prompt | llm
+                RAG_final_response = chain.invoke(
+                    {
+                        "query": extraction_query,
+                        "context": extract_LO(
+                            st.session_state.retriever, extraction_query
+                        ),
+                    },
+                    config={"callbacks": [langfuse_handler]},
+                )
+
+                # Another layer of response.
+                question_prompt = ChatPromptTemplate.from_messages(
+                    [
+                        (
+                            "system",
+                            """
+                    You are an agent to verify the context whether is relevant to the topic provided.
+                    If it's relevant reply "Yes" if it s not relevant reply "No".""",
+                        ),
+                        (
+                            "human",
+                            """
+                        Provided context :
+                        {context}
+
+                        topic:
+                        {course_topic}
+
+                        topic_description:
+                        {course_description}
+                        """,
+                        ),
+                    ]
+                )
+                chain = question_prompt | llm
+
+                response_confirmation = chain.invoke(
+                    {
+                        "context": RAG_final_response.content,
+                        "course_topic": course_topic,
+                        "course_description": course_description,
+                    },
+                    config={"callbacks": [langfuse_handler]},
+                )
+
+                # Logic here might change
+                if "Yes" in response_confirmation.content:
+                    prompt_text_input = prompt_template_with_context
+                    settings["context"] = RAG_final_response.content
+            st.subheader("Retrieve context", divider="gray")
+            st.info(
+                settings["context"],
+                icon="ℹ️",
+            )
             settings["course_topic"] = course_topic
             settings["course_description"] = course_description
             settings["target_audience"] = target_audience
             settings["pre_requisites"] = pre_requisites
             settings["allocated_time"] = allocated_time
-            # settings['other_features'] = "No other feature"
+            settings["language"] = language_selected
             GENERATE_TOC_PROMPT = f"""
             {prompt_text_input}
 
             """
             generate_toc_prompt = ChatPromptTemplate.from_template(GENERATE_TOC_PROMPT)
             toc_chain = generate_toc_prompt | chat_model | StrOutputParser()
-            st.subheader("Response", divider="gray")
+            st.subheader("Generated Learning Outcomes", divider="gray")
+
             st.info(
                 toc_chain.invoke(settings, config={"callbacks": [langfuse_handler]}),
                 icon="ℹ️",
@@ -351,22 +433,9 @@ def course_input():
 
 
 if __name__ == "__main__":
-
-    print(st.secrets)
-    _secrets_to_config = {}
-    _secrets_to_config["usernames"] = {
-        st.secrets["login"]["user"]: {
-            "email": st.secrets["login"]["email"],
-            "name": st.secrets["login"]["name"],
-            "password": st.secrets["login"]["password"],
-        }
-    }
-    authenticator = stauth.Authenticate(
-        _secrets_to_config,
-        st.secrets["login"]["name"],
-        st.secrets["cookie"]["key"],
-        st.secrets["cookie"]["expiry_days"],
-    )
+    _streamlit_utils = streamlit_utility()
+    _streamlit_utils.environment_settings()
+    authenticator = _streamlit_utils.initiate_authentication()
 
     try:
         authenticator.login()
@@ -375,31 +444,34 @@ if __name__ == "__main__":
     if st.session_state["authentication_status"]:
         authenticator.logout()
         st.write(f'Welcome *{st.session_state["name"]}*')
+        st.sidebar.markdown("### Choose the application")
         my_button = st.sidebar.radio(
-            label="Choose the application ", options=("Doc Chat", "Course Generation")
+            label="", options=("Doc Chat", "Course Generation")
         )
+
         st.markdown(
-            """<style>
-        div[class*="stRadio"] > label > div[data-testid="stMarkdownContainer"] > p {
-            font-family: 'Roboto', sans-serif;
-            font-size: 18px;
-            font-weight: 500;
-            color: #091747;
-            }
-            </style>
-            """,
+            _streamlit_utils.markdown_style(),
             unsafe_allow_html=True,
         )
         if my_button == "Doc Chat":
             st.title("Document Chat")
-            boot()
+            st.markdown("# Please ask any question regarding to the document!")
+            chat_widget()
         elif my_button == "Course Generation":
             st.title("Learning outcome generation")
             course_input()
         else:
             pass
-
-        # boot()
+        # Declare variable.
+        # Access the uploaded ref via a key.
+        st.sidebar.markdown("### Upload relevant material for course")
+        st.session_state.source_docs = st.sidebar.file_uploader(
+            label="", type="pdf", accept_multiple_files=True
+        )
+        # might need to replace this part.
+        st.sidebar.button(
+            "Submit document", on_click=process_documents, key="LO_upload"
+        )
     elif st.session_state["authentication_status"] is False:
         st.error("Username/password is incorrect")
     elif st.session_state["authentication_status"] is None:
