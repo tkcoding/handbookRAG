@@ -309,7 +309,30 @@ def course_input():
         with c11:
             c11.markdown("Langugage selected :red[*]")
             language_selected = c12.selectbox(
-                "", ("English", "Chinese", "Russian"), **params
+                "",
+                (
+                    "Arabic (العربية)",
+                    "Chinese (中文)",
+                    "Czech (Čeština)",
+                    "Dutch (Nederlands)",
+                    "English (English)",
+                    "French (Français)",
+                    "German (Deutsch)",
+                    "Hungarian (Magyar)",
+                    "Indonesian (Bahasa Indonesia)",
+                    "Italian (Italiano)",
+                    "Japanese (日本語)",
+                    "Korean (한국어)",
+                    "Persian (فارسی)",
+                    "Polish (Polski)",
+                    "Portuguese (Português)",
+                    "Russian (Русский)",
+                    "Spanish (Español)",
+                    "Swedish (Svenska)",
+                    "Turkish (Türkçe)",
+                    "Vietnamese (Tiếng Việt)",
+                ),
+                **params,
             )
 
         # Section where it should add in what's the file input.
