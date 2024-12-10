@@ -29,7 +29,7 @@ class promptTemplate(object):
             - LO1: [Action Verb] + [Specific Knowledge/Skill]
             - LO2: ...
             - LO3: ...
-
+            Reponse only includes learning outcomes (LO).
             No explanation or additional stating on bloom's taxonomy level needed in response.
         """
 
@@ -52,12 +52,12 @@ class promptTemplate(object):
             - If the allocated time is more 3 weeks, include **Remember** , **Understand** , **Apply** , **Analyze**, **Evaluate** and **Create** levels ONLY.
 
 
-            3. Generate 3–7 concise, measurable LOs aligned with the course content.
+            3. Generate 3 to 7 concise, measurable LOs aligned with the course content.
 
             4. Format the output as:
             - LO1: [Action Verb] + [Specific Knowledge/Skill]
             - LO2: ...
             - LO3: ...
-
+            Reponse only includes learning outcomes (LO).
             No explanation or additional stating on bloom's taxonomy level needed in response.
         """
