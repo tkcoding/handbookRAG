@@ -58,6 +58,7 @@ st.set_page_config(page_title="Course Generation Application")
 
 if not os.path.exists("data/tmp"):
     os.makedirs("data/tmp")
+print("files in data tmp", os.listdir("data/tmp"))
 
 
 def load_documents():
