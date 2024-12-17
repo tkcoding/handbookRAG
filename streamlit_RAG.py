@@ -456,31 +456,31 @@ def course_input():
                 icon="ℹ️",
             )
 
-            # TODO : Course structure generation
-            cs_input = {}
-            cs_input["course_topic"] = course_topic
-            cs_input["course_description"] = course_description
-            cs_input["target_audience"] = target_audience
-            cs_input["pre_requisites"] = pre_requisites
-            cs_input["allocated_time"] = allocated_time
-            cs_input["language"] = language_selected
-            cs_input["learning_outcome"] = learningOutcomeGeneration
+            # # TODO : Course structure generation
+            # cs_input = {}
+            # cs_input["course_topic"] = course_topic
+            # cs_input["course_description"] = course_description
+            # cs_input["target_audience"] = target_audience
+            # cs_input["pre_requisites"] = pre_requisites
+            # cs_input["allocated_time"] = allocated_time
+            # cs_input["language"] = language_selected
+            # cs_input["learning_outcome"] = learningOutcomeGeneration
 
-            GENERATE_COURSE_STRUCTURE_PROMPT = f"""
-            {CourseStructurePrompt}
-            """
-            generate_CS_prompt = ChatPromptTemplate.from_template(
-                GENERATE_COURSE_STRUCTURE_PROMPT
-            )
-            cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
-            st.subheader("Course structure (Beta feature!)", divider="gray")
-            CourseStructureGeneration = cs_chain.invoke(
-                cs_input, config={"callbacks": [langfuse_handler]}
-            )
-            st.info(
-                CourseStructureGeneration,
-                icon="ℹ️",
-            )
+            # GENERATE_COURSE_STRUCTURE_PROMPT = f"""
+            # {CourseStructurePrompt}
+            # """
+            # generate_CS_prompt = ChatPromptTemplate.from_template(
+            #     GENERATE_COURSE_STRUCTURE_PROMPT
+            # )
+            # cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
+            # st.subheader("Course structure (Beta feature!)", divider="gray")
+            # CourseStructureGeneration = cs_chain.invoke(
+            #     cs_input, config={"callbacks": [langfuse_handler]}
+            # )
+            # st.info(
+            #     CourseStructureGeneration,
+            #     icon="ℹ️",
+            # )
 
 
 if __name__ == "__main__":
