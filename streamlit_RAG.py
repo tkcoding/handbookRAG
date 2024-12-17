@@ -242,6 +242,7 @@ def course_input():
     promptTemplateHandler = promptTemplate()
     prompt_template_with_context = promptTemplateHandler.LOPromptWithContext()
     prompt_template_wo_context = promptTemplateHandler.LOPromptWithoutContext()
+    CourseStructurePrompt = promptTemplateHandler.CourseStructurePrompt()
 
     # st.subheader("Optional: Upload document related to learning outcomes", divider="gray")
 
@@ -254,7 +255,7 @@ def course_input():
     with st.form(key="Form1"):
         settings = {}
         settings["context"] = "No document context"
-        prompt_text_input = prompt_template_wo_context
+        prompt_text_input = prompt_template_with_context
 
         params = {}
         params.setdefault("label_visibility", "collapsed")
@@ -335,9 +336,9 @@ def course_input():
                 **params,
             )
 
-        # Section where it should add in what's the file input.
-
-        # prompt_text_input = st.text_area("Prompt input", value=prompt_template_with_context)
+        prompt_text_input = st.text_area(
+            "Prompt input", value=prompt_template_with_context
+        )
         submitButton = st.form_submit_button(label="Generate learning outcomes")
         if submitButton:
             if len(st.session_state.source_docs) >= 1:
@@ -428,7 +429,7 @@ def course_input():
 
                 # Logic here might change
                 if "Yes" in response_confirmation.content:
-                    prompt_text_input = prompt_template_with_context
+                    # prompt_text_input = prompt_template_with_context
                     settings["context"] = RAG_final_response.content
             st.subheader("Retrieve context", divider="gray")
             st.info(
@@ -443,14 +444,41 @@ def course_input():
             settings["language"] = language_selected
             GENERATE_TOC_PROMPT = f"""
             {prompt_text_input}
-
             """
             generate_toc_prompt = ChatPromptTemplate.from_template(GENERATE_TOC_PROMPT)
             toc_chain = generate_toc_prompt | chat_model | StrOutputParser()
             st.subheader("Generated Learning Outcomes", divider="gray")
-
+            learningOutcomeGeneration = toc_chain.invoke(
+                settings, config={"callbacks": [langfuse_handler]}
+            )
             st.info(
-                toc_chain.invoke(settings, config={"callbacks": [langfuse_handler]}),
+                learningOutcomeGeneration,
+                icon="ℹ️",
+            )
+
+            # TODO : Course structure generation
+            cs_input = {}
+            cs_input["course_topic"] = course_topic
+            cs_input["course_description"] = course_description
+            cs_input["target_audience"] = target_audience
+            cs_input["pre_requisites"] = pre_requisites
+            cs_input["allocated_time"] = allocated_time
+            cs_input["language"] = language_selected
+            cs_input["learning_outcome"] = learningOutcomeGeneration
+
+            GENERATE_COURSE_STRUCTURE_PROMPT = f"""
+            {CourseStructurePrompt}
+            """
+            generate_CS_prompt = ChatPromptTemplate.from_template(
+                GENERATE_COURSE_STRUCTURE_PROMPT
+            )
+            cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
+            st.subheader("Course structure (Beta feature!)", divider="gray")
+            CourseStructureGeneration = cs_chain.invoke(
+                cs_input, config={"callbacks": [langfuse_handler]}
+            )
+            st.info(
+                CourseStructureGeneration,
                 icon="ℹ️",
             )
 
