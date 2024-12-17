@@ -62,7 +62,7 @@ print("files in data tmp", os.listdir("data/tmp"))
 
 
 def load_documents():
-    # Call llamaparse for parsing
+    # Call llamaparse for parsing.
     loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf")
     documents = loader.load()
     return documents
@@ -518,7 +518,7 @@ if __name__ == "__main__":
         # Access the uploaded ref via a key.
         st.sidebar.markdown("### Upload relevant material for course")
         st.session_state.source_docs = st.sidebar.file_uploader(
-            label="", type="pdf", accept_multiple_files=True
+            label="", accept_multiple_files=True
         )
         # might need to replace this part.
         st.sidebar.button(
