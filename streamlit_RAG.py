@@ -58,7 +58,6 @@ st.set_page_config(page_title="Course Generation Application")
 
 if not os.path.exists("data/tmp"):
     os.makedirs("data/tmp")
-print("files in data tmp", os.listdir("data/tmp"))
 
 
 def load_documents():
@@ -209,6 +208,7 @@ def process_documents():
                     tmp_file.write(source_doc.read())
                 documents = load_documents()
                 for _file in TMP_DIR.iterdir():
+                    print("temp file is here xxxxx", temp_file)
                     temp_file = TMP_DIR.joinpath(_file)
                     temp_file.unlink()
                 texts = split_documents(documents)
@@ -458,30 +458,30 @@ def course_input():
             )
 
             # # TODO : Course structure generation
-            # cs_input = {}
-            # cs_input["course_topic"] = course_topic
-            # cs_input["course_description"] = course_description
-            # cs_input["target_audience"] = target_audience
-            # cs_input["pre_requisites"] = pre_requisites
-            # cs_input["allocated_time"] = allocated_time
-            # cs_input["language"] = language_selected
-            # cs_input["learning_outcome"] = learningOutcomeGeneration
+            cs_input = {}
+            cs_input["course_topic"] = course_topic
+            cs_input["course_description"] = course_description
+            cs_input["target_audience"] = target_audience
+            cs_input["pre_requisites"] = pre_requisites
+            cs_input["allocated_time"] = allocated_time
+            cs_input["language"] = language_selected
+            cs_input["learning_outcome"] = learningOutcomeGeneration
 
-            # GENERATE_COURSE_STRUCTURE_PROMPT = f"""
-            # {CourseStructurePrompt}
-            # """
-            # generate_CS_prompt = ChatPromptTemplate.from_template(
-            #     GENERATE_COURSE_STRUCTURE_PROMPT
-            # )
-            # cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
-            # st.subheader("Course structure (Beta feature!)", divider="gray")
-            # CourseStructureGeneration = cs_chain.invoke(
-            #     cs_input, config={"callbacks": [langfuse_handler]}
-            # )
-            # st.info(
-            #     CourseStructureGeneration,
-            #     icon="ℹ️",
-            # )
+            GENERATE_COURSE_STRUCTURE_PROMPT = f"""
+            {CourseStructurePrompt}
+            """
+            generate_CS_prompt = ChatPromptTemplate.from_template(
+                GENERATE_COURSE_STRUCTURE_PROMPT
+            )
+            cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
+            st.subheader("Course structure (Beta feature!)", divider="gray")
+            CourseStructureGeneration = cs_chain.invoke(
+                cs_input, config={"callbacks": [langfuse_handler]}
+            )
+            st.info(
+                CourseStructureGeneration,
+                icon="ℹ️",
+            )
 
 
 if __name__ == "__main__":
@@ -518,7 +518,7 @@ if __name__ == "__main__":
         # Access the uploaded ref via a key.
         st.sidebar.markdown("### Upload relevant material for course")
         st.session_state.source_docs = st.sidebar.file_uploader(
-            label="", accept_multiple_files=True
+            label="", type="pdf", accept_multiple_files=True
         )
         # might need to replace this part.
         st.sidebar.button(
