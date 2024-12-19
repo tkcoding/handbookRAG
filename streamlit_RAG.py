@@ -27,8 +27,9 @@ from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
 from common.utils import streamlit_utility
 from common.prompt import promptTemplate
-from common.llama_parser import llama_document_parser
-from llama_index.legacy import VectorStoreIndex
+
+# from common.llama_parser import llama_document_parser
+# from llama_index.legacy import VectorStoreIndex
 
 # Example of multiple credentials
 # credentials:
