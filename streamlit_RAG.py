@@ -66,20 +66,19 @@ if not os.path.exists("data/tmp"):
 
 def load_documents():
     # Call llamaparse for parsing.
-    # loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf",show_progress=True)
-    # documents = loader.load()
-    #
+    loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf", show_progress=True)
+    documents = loader.load()
 
-    documents = []
-    for source_doc in st.session_state.source_docs:
-        print(source_doc.name())
-        print(source_doc.read())
-        # llama_parser = llama_document_parser(parsing_ins=promptTemplateHandler.llamaparsePrompt())
-        # # llamaparse to extract documents
-        # json_list = llama_parser.document_processing_llamaparse(file_name=f"{source_doc.name}",
-        #                             image_output_folder="/tmp")
-        # texts,tables,text_concat = llama_parser.categorize_elements(json_list)
-        # documents.append(text_concat)
+    # documents = []
+    # for source_doc in st.session_state.source_docs:
+    #     print(source_doc.name())
+    #     print(source_doc.read())
+    #     # llama_parser = llama_document_parser(parsing_ins=promptTemplateHandler.llamaparsePrompt())
+    #     # # llamaparse to extract documents
+    #     # json_list = llama_parser.document_processing_llamaparse(file_name=f"{source_doc.name}",
+    #     #                             image_output_folder="/tmp")
+    #     # texts,tables,text_concat = llama_parser.categorize_elements(json_list)
+    #     # documents.append(text_concat)
     return documents
 
 
