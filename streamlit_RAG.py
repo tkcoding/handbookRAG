@@ -218,14 +218,12 @@ def process_documents():
         try:
             all_doc_text = []
             for source_doc in st.session_state.source_docs:
-                print("xxxxxxxxxx", source_doc.read())
                 with tempfile.NamedTemporaryFile(
                     delete=False, dir=TMP_DIR.as_posix(), suffix=".pdf"
                 ) as tmp_file:
                     tmp_file.write(source_doc.read())
                 documents = load_documents()
                 for _file in TMP_DIR.iterdir():
-                    print("temp file is here xxxxx", temp_file)
                     temp_file = TMP_DIR.joinpath(_file)
                     temp_file.unlink()
                 texts = split_documents(documents)
