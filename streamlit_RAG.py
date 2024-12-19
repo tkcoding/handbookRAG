@@ -27,6 +27,8 @@ from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
 from common.utils import streamlit_utility
 from common.prompt import promptTemplate
+from common.llama_parser import llama_document_parser
+from llama_index.legacy import VectorStoreIndex
 
 # Example of multiple credentials
 # credentials:
@@ -49,6 +51,8 @@ from common.prompt import promptTemplate
 # os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
 
 chat_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
+promptTemplateHandler = promptTemplate()
+
 TMP_DIR = Path(__file__).resolve().parent.joinpath("data", "tmp")
 LOCAL_VECTOR_STORE_DIR = (
     Path(__file__).resolve().parent.joinpath("data", "vector_store")
@@ -62,8 +66,20 @@ if not os.path.exists("data/tmp"):
 
 def load_documents():
     # Call llamaparse for parsing.
-    loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf")
-    documents = loader.load()
+    # loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf",show_progress=True)
+    # documents = loader.load()
+    #
+
+    documents = []
+    for source_doc in st.session_state.source_docs:
+        print(source_doc.name())
+        print(source_doc.read())
+        # llama_parser = llama_document_parser(parsing_ins=promptTemplateHandler.llamaparsePrompt())
+        # # llamaparse to extract documents
+        # json_list = llama_parser.document_processing_llamaparse(file_name=f"{source_doc.name}",
+        #                             image_output_folder="/tmp")
+        # texts,tables,text_concat = llama_parser.categorize_elements(json_list)
+        # documents.append(text_concat)
     return documents
 
 
@@ -202,6 +218,7 @@ def process_documents():
         try:
             all_doc_text = []
             for source_doc in st.session_state.source_docs:
+                print("xxxxxxxxxx", source_doc.read())
                 with tempfile.NamedTemporaryFile(
                     delete=False, dir=TMP_DIR.as_posix(), suffix=".pdf"
                 ) as tmp_file:
@@ -240,10 +257,11 @@ def chat_widget():
 # Notice that you can forward text_input parameters naturally
 def course_input():
     langfuse_handler = CallbackHandler()
-    promptTemplateHandler = promptTemplate()
     prompt_template_with_context = promptTemplateHandler.LOPromptWithContext()
     prompt_template_wo_context = promptTemplateHandler.LOPromptWithoutContext()
     CourseStructurePrompt = promptTemplateHandler.CourseStructurePrompt()
+    BloomReviewPrompt = promptTemplateHandler.BloomReviewerPrompt()
+    prompt_template_beta = promptTemplateHandler.LORephraseBetaPrompt()
 
     # st.subheader("Optional: Upload document related to learning outcomes", divider="gray")
 
@@ -337,9 +355,7 @@ def course_input():
                 **params,
             )
 
-        prompt_text_input = st.text_area(
-            "Prompt input", value=prompt_template_with_context
-        )
+        prompt_text_input = st.text_area("Prompt input", value=prompt_template_beta)
         submitButton = st.form_submit_button(label="Generate learning outcomes")
         if submitButton:
             if len(st.session_state.source_docs) >= 1:
@@ -457,7 +473,25 @@ def course_input():
                 icon="ℹ️",
             )
 
-            # # TODO : Course structure generation
+            # Reviewer
+            st.subheader("Bloom Revise output", divider="gray")
+            bloom_reviewer_input = {}
+            bloom_reviewer_input["allocated_time"] = allocated_time
+            bloom_reviewer_input["learning_outcomes"] = learningOutcomeGeneration
+            BLOOM_REVIEWER = f"""
+            {BloomReviewPrompt}
+            """
+            bloomReviewerPrompt = ChatPromptTemplate.from_template(BLOOM_REVIEWER)
+            cs_chain = bloomReviewerPrompt | chat_model | StrOutputParser()
+            BloomRevisedOutput = cs_chain.invoke(
+                bloom_reviewer_input, config={"callbacks": [langfuse_handler]}
+            )
+
+            st.info(
+                BloomRevisedOutput,
+                icon="ℹ️",
+            )
+            #
             cs_input = {}
             cs_input["course_topic"] = course_topic
             cs_input["course_description"] = course_description
