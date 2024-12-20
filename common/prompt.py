@@ -101,19 +101,45 @@ class promptTemplate(object):
             Learning outcome:
             {learning_outcome}
 
-            Generate course structure in the JSON format for a course about {course_topic} for {target_audience}.
+            Generate course structure in the bullet format for a course about {course_topic} for {target_audience}.
             course description is as follows: {course_description}.
             Pre-requesite : {pre_requisites}
             Allocated time : {allocated_time}
             Response should be presented in {language}
 
-            1.All learning outcome provided must be included as a consideration of creating course structure.
 
-            2. Course structure presented should be able to complete within allocated time with its complexity.
-            DO NOT provide unreasonable course structure for example 10 course structures for an allocated time of 2 days which is totally unreasonable.
+            Below are the requirements for course structure generation:
+            1. The Structure should contain 3 elements:
+                - Lesson (micro-learning activity between one and three hours of work)
+                - Topic (collection of few lessons, typically for several hours of work)
+                - Module (learning activity around one content e.g. historical period, might consist of one or more topics)
+            2. The course element should contain:
+                - name for course element
+                - agenda (brief text overview, description of the suggested content for the element)
 
-            Reponse only includes course struture.
-            No explanation needed in response.
+            Glossary:
+                - Module - learning activity around one content e.g. historical period, might consist of one or more topics. On this level teachers and students are working on mastery of one piece of content through different taxonomy levels.
+                        During this learning activity students can achieve middle-range educational goals associated with first four or five levels of Bloom taxonomy (remember, understand, apply, analyze, evaluate).
+                        Typically learning outcome on this level target apply, analyze, evaluate levels.
+                - Topic - a collection of few lessons, typically for several hours of work. Typically learning outcome on this level target remember, understand, apply and analyze levels of Bloom's taxonomy.
+                - Lesson - micro-learning activity between one and three hours of work. Typically learning outcome on this level target remember, understand and apply levels of Bloom's taxonomy.
+
+            Output structure should be as follows:
+
+                Module : Matrix Operations in Electrical Engineering
+                - Agenda :
+                    - Topics : Introduction to Matrices
+                    - Agenda :
+                        - Lessons : Key Matrix Terms
+                        - Agenda :
+                    - Topics : Matrix Operations
+                    - Agenda :
+                        - Lessons : Significance of Matrix Operations
+                        - Agenda :
+                        - Lessons : Performing Matrix operation
+                        - Agenda :
+
+            Explanation on output structure : Module should be the parents for topics and lessons should be the parents for lessons.
         """
 
     def BloomReviewerPrompt(self) -> str:
