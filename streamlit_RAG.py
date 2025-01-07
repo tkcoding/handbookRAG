@@ -258,8 +258,10 @@ def course_input():
     prompt_template_with_context = promptTemplateHandler.LOPromptWithContext()
     prompt_template_wo_context = promptTemplateHandler.LOPromptWithoutContext()
     CourseStructurePrompt = promptTemplateHandler.CourseStructurePrompt()
+    CourseStructurePromptIrina = promptTemplateHandler.CourseStructurePromptRevised()
     BloomReviewPrompt = promptTemplateHandler.BloomReviewerPrompt()
-    prompt_template_beta = promptTemplateHandler.LORephraseBetaPrompt()
+    # prompt_template_beta = promptTemplateHandler.LORephraseBetaPrompt()
+    prompt_template_beta = promptTemplateHandler.LOCourseStructureOnePrompt()
 
     # st.subheader("Optional: Upload document related to learning outcomes", divider="gray")
 
@@ -472,23 +474,24 @@ def course_input():
             )
 
             # Reviewer
-            st.subheader("Bloom Revise output", divider="gray")
-            bloom_reviewer_input = {}
-            bloom_reviewer_input["allocated_time"] = allocated_time
-            bloom_reviewer_input["learning_outcomes"] = learningOutcomeGeneration
-            BLOOM_REVIEWER = f"""
-            {BloomReviewPrompt}
-            """
-            bloomReviewerPrompt = ChatPromptTemplate.from_template(BLOOM_REVIEWER)
-            cs_chain = bloomReviewerPrompt | chat_model | StrOutputParser()
-            BloomRevisedOutput = cs_chain.invoke(
-                bloom_reviewer_input, config={"callbacks": [langfuse_handler]}
-            )
+            # st.subheader("Bloom Revise output", divider="gray")
+            # bloom_reviewer_input = {}
+            # bloom_reviewer_input["allocated_time"] = allocated_time
+            # bloom_reviewer_input["learning_outcomes"] = learningOutcomeGeneration
+            # BLOOM_REVIEWER = f"""
+            # {BloomReviewPrompt}
+            # """
+            # bloomReviewerPrompt = ChatPromptTemplate.from_template(BLOOM_REVIEWER)
+            # cs_chain = bloomReviewerPrompt | chat_model | StrOutputParser()
+            # BloomRevisedOutput = cs_chain.invoke(
+            #     bloom_reviewer_input, config={"callbacks": [langfuse_handler]}
+            # )
 
-            st.info(
-                BloomRevisedOutput,
-                icon="ℹ️",
-            )
+            # st.info(
+            #     BloomRevisedOutput,
+            #     icon="ℹ️",
+            # )
+
             #
             cs_input = {}
             cs_input["course_topic"] = course_topic
@@ -499,6 +502,22 @@ def course_input():
             cs_input["language"] = language_selected
             cs_input["learning_outcome"] = learningOutcomeGeneration
 
+            GENERATE_COURSE_STRUCTURE_PROMPT_IRINA = f"""
+            {CourseStructurePromptIrina}
+            """
+            generate_CS_prompt = ChatPromptTemplate.from_template(
+                GENERATE_COURSE_STRUCTURE_PROMPT_IRINA
+            )
+            cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
+            st.subheader("Course structure - By Irina", divider="gray")
+            CourseStructureGenerationIrina = cs_chain.invoke(
+                cs_input, config={"callbacks": [langfuse_handler]}
+            )
+            st.info(
+                CourseStructureGenerationIrina,
+                icon="ℹ️",
+            )
+
             GENERATE_COURSE_STRUCTURE_PROMPT = f"""
             {CourseStructurePrompt}
             """
@@ -506,7 +525,7 @@ def course_input():
                 GENERATE_COURSE_STRUCTURE_PROMPT
             )
             cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
-            st.subheader("Course structure (Beta feature!)", divider="gray")
+            st.subheader("Course structure (According to ST-2706)", divider="gray")
             CourseStructureGeneration = cs_chain.invoke(
                 cs_input, config={"callbacks": [langfuse_handler]}
             )

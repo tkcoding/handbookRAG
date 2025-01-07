@@ -5,15 +5,6 @@ class promptTemplate(object):
     def LOPromptWithContext(self) -> str:
         return """
             Your task it to estimate each section with total duration needed , the amount of all section should add up to allocated time according to the template provided above.
-            Learning outcome from document provided MUST BE used as the main driving point of the constructed learning outcome with addition provided information.
-            Learning outcome from document:
-            {context}
-
-            Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience}.
-            course description is as follows: {course_description}.
-            Pre-requesite : {pre_requisites}
-            Allocated time : {allocated_time}
-            Response should be presented in {language}
 
             1. Scale the duration needed for each section with respect to the complexity and expertise level.
 
@@ -31,6 +22,16 @@ class promptTemplate(object):
             - LO3: ...
             Reponse only includes learning outcomes (LO).
             No explanation or additional stating on bloom's taxonomy level needed in response.
+
+            Learning outcome from document provided MUST BE used as the main driving point of the constructed learning outcome with addition provided information.
+            Learning outcome from document:
+            {context}
+
+            Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience}.
+            course description is as follows: {course_description}.
+            Pre-requesite : {pre_requisites}
+            Allocated time : {allocated_time}
+            Response should be presented in {language}
         """
 
     def LOPromptWithoutContext(self) -> str:
@@ -62,11 +63,49 @@ class promptTemplate(object):
             No explanation or additional stating on bloom's taxonomy level needed in response.
         """
 
+    def LOCourseStructureOnePrompt(self) -> str:
+        return """
+        You are a curriculum expert in developing educational courses using Bloom’s taxonomy and context provided.
+        Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience} for allocated time of {allocated_time}.
+        course description is as follows: {course_description}.
+        Pre-requesite : {pre_requisites}
+        Allocated time : {allocated_time}
+        Response should be presented in {language}
+        Learning outcome from document provided MUST BE used as the main driving point of the constructed learning outcome with addition provided information.
+        Learning outcome from document: {context}
+
+        If allocated time is presented in credits, weeks, months, semesters or years, use these rules to convert it to hours:
+        1 credit = 10 hours of lectures or seminars and 20 hours of preparation time
+        1 credit hour = 1 hour of class work and 2 hours of preparation time
+        1 week = 3 hours of class time and 6 hours of preparation time
+        1 semester = 45 hours of class time and 90 hours of student preparation for a 3 credit course
+        Generate 3–7 concise, measurable LOs aligned with the course content, target audience and Bloom’s taxonomy.
+
+        First , consider what bloom's taxanomy level should be included and explain why.
+        According to the allocated time, first decide which bloom taxonomy level to be included respectively.
+            - If the allocated time is less than 1 week or 3 hours, focus on **Remember** and **Understand** levels ONLY.
+            - If the allocated time is between 1–3 weeks, include **Remember** , **Understand** , **Apply** and **Analyze** ONLY.
+            - If the allocated time is more 3 weeks, include **Remember** , **Understand** , **Apply** , **Analyze**, **Evaluate** and **Create** levels ONLY.
+
+        Format the output as:
+
+        LO1:
+            Learning Objectives: [Action Verb using Bloom’s Taxonomy] + [Specific Knowledge/Skill]
+            Reasoning : ...
+        LO2:
+            Learning Objectives : Remember the fundamental concepts of matrix operations, including addition, subtraction, and multiplication.
+            Reasoning : This outcome is essential as it establishes a foundational understanding of matrix operations, which are critical for further applications in electrical engineering.
+        LO3: ...
+        For each learning outcome (LO) add reasoning, why this learning outcome is important in this course.
+
+"""
+
     def LORephraseBetaPrompt(self) -> str:
         return """
          You are a curriculum expert in creating learning outcomes according to bloom taxonomy and context provided.
 
-        1. Given allocated time of {allocated_time} first decide what level should be included.
+        1. Given allocated time, first decide what level should be included.
+
         According to the allocated time. Include bloom taxonomy level respectively.
             - If the allocated time is less than 1 week, focus on **Remember** and **Understand** levels ONLY.
             - If the allocated time is between 1–3 weeks, include **Remember** , **Understand** , **Apply** and **Analyze** ONLY.
@@ -85,10 +124,27 @@ class promptTemplate(object):
         - Comprehend basic data types usage
 
         Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience}.
-        course description is as follows: {course_description}.
+        allocated_time : {allocated_time}
+        course description : {course_description}.
         Pre-requesite : {pre_requisites}
         Response should be presented in {language}
 
+        """
+
+    def CourseStructurePromptRevised(self) -> str:
+        return """
+        Create several modules for the course according to the learning outcomes generated:
+        {learning_outcome}
+
+        It's crucial that the module created should be within {allocated_time}.
+
+        Align every module of the course with corresponding LO.
+        When generating course structure and describing its’ agenda mention concrete content that should be taught in this module. This content should reflect the most important information to master the LO.
+        Estimate each module of the course with duration of hours needed, the amount of all modules should add up to allocated time according to the template provided above. Scale the duration needed for each module with respect to the complexity and expertise level. Use minutes or hours to describe duration of each module of the course.
+        For lower level LO’s Remember , Understand , Apply) sections should be shorter, than for higher-level LO’s (Analyze, Evaluate and Create).
+        Separately indicate how much time of each module will be devoted to work in class, and how much to independent work of the learner at home (preparation time).
+
+        For each module of the course suggest teaching methods, practical tasks and potential assessments that a teacher should use to achieve the goal. To select methods, practical tasks and potential assessments use the best practices according to educational science.
         """
 
     def CourseStructurePrompt(self) -> str:
