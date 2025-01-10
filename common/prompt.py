@@ -81,12 +81,6 @@ class promptTemplate(object):
         1 semester = 45 hours of class time and 90 hours of student preparation for a 3 credit course
         Generate 3–7 concise, measurable LOs aligned with the course content, target audience and Bloom’s taxonomy.
 
-        First , consider what bloom's taxanomy level should be included and explain why.
-        According to the allocated time, first decide which bloom taxonomy level to be included respectively.
-            - If the allocated time is less than 1 week or 3 hours, focus on **Remember** and **Understand** levels ONLY.
-            - If the allocated time is between 1–3 weeks, include **Remember** , **Understand** , **Apply** and **Analyze** ONLY.
-            - If the allocated time is more 3 weeks, include **Remember** , **Understand** , **Apply** , **Analyze**, **Evaluate** and **Create** levels ONLY.
-
         Format the output as:
 
         LO1:

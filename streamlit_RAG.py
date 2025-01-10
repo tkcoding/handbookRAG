@@ -172,18 +172,6 @@ def query_llm(retriever, query):
     content_retrieved = retriever.invoke(query)
     content_concat = "\n\n".join(doc.page_content for doc in content_retrieved)
 
-    # qa_chain = ConversationalRetrievalChain.from_llm(
-    #     llm=llm_chat,
-    #     retriever=retriever,
-    #     combine_docs_chain_kwargs={"prompt": prompt}
-    # )
-    # print('xxxxx',qa_chain({
-    #     "question":query,
-    #     "query":query,
-    #     "context":content_concat,
-    #     "chat_history":st.session_state.messages
-    #     }))
-
     chain = prompt | llm
     response = chain.invoke(
         {"query": query, "context": content_concat},
@@ -204,10 +192,6 @@ def input_fields():
             st.session_state.openai_api_key = st.text_input(
                 "OpenAI API key", type="password"
             )
-
-    # st.session_state.source_docs = st.file_uploader(
-    #     label="Uploads document", type="pdf", accept_multiple_files=True
-    # )
 
 
 def process_documents():
@@ -472,27 +456,6 @@ def course_input():
                 learningOutcomeGeneration,
                 icon="ℹ️",
             )
-
-            # Reviewer
-            # st.subheader("Bloom Revise output", divider="gray")
-            # bloom_reviewer_input = {}
-            # bloom_reviewer_input["allocated_time"] = allocated_time
-            # bloom_reviewer_input["learning_outcomes"] = learningOutcomeGeneration
-            # BLOOM_REVIEWER = f"""
-            # {BloomReviewPrompt}
-            # """
-            # bloomReviewerPrompt = ChatPromptTemplate.from_template(BLOOM_REVIEWER)
-            # cs_chain = bloomReviewerPrompt | chat_model | StrOutputParser()
-            # BloomRevisedOutput = cs_chain.invoke(
-            #     bloom_reviewer_input, config={"callbacks": [langfuse_handler]}
-            # )
-
-            # st.info(
-            #     BloomRevisedOutput,
-            #     icon="ℹ️",
-            # )
-
-            #
             cs_input = {}
             cs_input["course_topic"] = course_topic
             cs_input["course_description"] = course_description
