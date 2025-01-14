@@ -66,7 +66,7 @@ class promptTemplate(object):
     def LOCourseStructureOnePrompt(self) -> str:
         return """
         You are a curriculum expert in developing educational courses using Bloom’s taxonomy and context provided.
-        Generate learning objectives in the JSON format for a course about {course_topic} for {target_audience} for allocated time of {allocated_time}.
+        Generate learning objectives in the bullet format for a course about {course_topic} for {target_audience} for allocated time of {allocated_time}.
         course description is as follows: {course_description}.
         Pre-requesite : {pre_requisites}
         Allocated time : {allocated_time}
@@ -84,10 +84,10 @@ class promptTemplate(object):
         Format the output as:
 
         LO1:
-            Learning Objectives: [Action Verb using Bloom’s Taxonomy] + [Specific Knowledge/Skill]
+            Learning Outcome: [Action Verb using Bloom’s Taxonomy] + [Specific Knowledge/Skill]
             Reasoning : ...
         LO2:
-            Learning Objectives : Remember the fundamental concepts of matrix operations, including addition, subtraction, and multiplication.
+            Learning Outcome : Remember the fundamental concepts of matrix operations, including addition, subtraction, and multiplication.
             Reasoning : This outcome is essential as it establishes a foundational understanding of matrix operations, which are critical for further applications in electrical engineering.
         LO3: ...
         For each learning outcome (LO) add reasoning, why this learning outcome is important in this course.
@@ -166,6 +166,8 @@ class promptTemplate(object):
             2. The course element should contain:
                 - name for course element
                 - agenda (brief text overview, description of the suggested content for the element)
+            3. Multiple learning outcomes can be mapped to single lesson.
+            4. All learning outcome should be mapped to at least one of the lesson created.
 
             Glossary:
                 - Module - learning activity around one content e.g. historical period, might consist of one or more topics. On this level teachers and students are working on mastery of one piece of content through different taxonomy levels.
@@ -182,12 +184,13 @@ class promptTemplate(object):
                     - Agenda :
                         - Lessons : Key Matrix Terms
                         - Agenda :
+                        - Learning outcomes associated : (LO1) Define basic matrix operations such as addition, subtraction, and multiplication.
                     - Topics : Matrix Operations
                     - Agenda :
                         - Lessons : Significance of Matrix Operations
                         - Agenda :
-                        - Lessons : Performing Matrix operation
-                        - Agenda :
+                        - Learning outcomes associated : (LO..) ...
+                                                       : (LO..) ...
 
             Explanation on output structure : Module should be the parents for topics and lessons should be the parents for lessons.
         """

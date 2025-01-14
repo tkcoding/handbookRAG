@@ -17,7 +17,9 @@ import streamlit as st
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
-from pydantic.v1 import BaseModel, Field
+
+# from pydantic.v1 import BaseModel, Field
+# from langchain.output_parsers import PydanticOutputParser
 from typing import Any, List, Tuple
 from langchain.schema.runnable import RunnableMap, RunnableLambda, RunnablePassthrough
 from langchain.schema.messages import BaseMessage, HumanMessage, AIMessage
@@ -27,29 +29,9 @@ from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
 from common.utils import streamlit_utility
 from common.prompt import promptTemplate
-
-# from common.llama_parser import llama_document_parser
-# from llama_index.legacy import VectorStoreIndex
-
-# Example of multiple credentials
-# credentials:
-#   usernames:
-#     jsmith:
-#       email: jsmith@gmail.com
-#       name: John Smith
-#       password: abc # To be replaced with hashed password
-#     rbriggs:
-#       email: rbriggs@gmail.com
-#       name: Rebecca Briggs
-#       password: def # To be replaced with hashed password
-
-
-# Get keys for your project from the project settings page
-# https://cloud.langfuse.com
-# os.environ["LANGFUSE_PUBLIC_KEY"] = st.secrets.LANGFUSE_PUBLIC_KEY
-# os.environ["LANGFUSE_SECRET_KEY"] = st.secrets.LANGFUSE_SECRET_KEY
-# os.environ["LANGFUSE_HOST"] = st.secrets.LANGFUSE_HOST
-# os.environ["OPENAI_API_KEY"] = st.secrets.OPENAI_API_KEY
+import requests
+import time
+import logging
 
 chat_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
 promptTemplateHandler = promptTemplate()
@@ -61,6 +43,95 @@ LOCAL_VECTOR_STORE_DIR = (
 
 st.set_page_config(page_title="Course Generation Application")
 
+### For KM API
+KM_LO_Generation_ID = ""
+KM_CourseStructure_Generation_ID = ""
+
+key_data = {"id": "", "key": "", "name": "my-key", "created_at": ""}
+
+# Configuration
+API_URL = "https://test-constructor.dev/api/platform-kmapi/v1"  # Use the correct base URL from the API specification
+API_KEY = key_data["key"]  # Replace with your actual API key
+AI_MESSAGE_TYPE = "ai_message"
+PROCESSING_STATUS = "processing"
+DONE_STATUS = "done"
+
+# Logging configuration
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+headers = {"X-KM-AccessKey": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+
+
+def create_session(km_id):
+    """Create a new chat session."""
+    data = {
+        "llm_id": "83db90a3c67648e0ba43b48c2f2c39b6",  # Example LLM ID (GPT-4o)
+        "mode": "model",
+    }
+    response = requests.post(
+        f"{API_URL}/knowledge-models/{km_id}/chat-sessions", headers=headers, json=data
+    )
+    if response.status_code == 200:
+        logging.info("Chat session created successfully.")
+        return response.json()["id"]
+    else:
+        logging.error(
+            f"Error creating chat session: {response.status_code} - {response.text}"
+        )
+        return None
+
+
+def send_message(km_id, session_id, message_text):
+    """Send a message to the chat session."""
+    data = {"text": message_text}
+    response = requests.post(
+        f"{API_URL}/knowledge-models/{km_id}/chat-sessions/{session_id}/messages",
+        headers=headers,
+        json=data,
+    )
+    if response.status_code == 200:
+        logging.info("Message sent successfully.")
+        return True
+    else:
+        logging.error(
+            f"Error sending message: {response.status_code} - {response.text}"
+        )
+        return False
+
+
+def fetch_response(km_id, session_id, timeout=120, request_timeout=15, retry_delay=3):
+    """Fetch response from the chat session."""
+    start_time = time.time()
+
+    while True:
+        response = requests.get(
+            f"{API_URL}/knowledge-models/{km_id}/chat-sessions/{session_id}/messages",
+            headers=headers,
+            timeout=request_timeout,
+        )
+        if response.status_code != 200:
+            logging.error(
+                f"Error retrieving messages: {response.status_code} - {response.text}"
+            )
+            return None
+
+        messages = response.json().get("results", [])
+        for message in messages:
+            if message["type"] == AI_MESSAGE_TYPE:
+                status_name = message.get("status", {}).get("name", "")
+                if status_name == DONE_STATUS:
+                    return message.get("content", {}).get("text", "No content")
+                elif status_name == PROCESSING_STATUS:
+                    time.sleep(retry_delay)
+                    break
+
+        if time.time() - start_time > timeout:
+            logging.warning("Operation timed out.")
+            break
+
+    return "No response received."
+
+
 if not os.path.exists("data/tmp"):
     os.makedirs("data/tmp")
 
@@ -69,17 +140,6 @@ def load_documents():
     # Call llamaparse for parsing.
     loader = DirectoryLoader(TMP_DIR.as_posix(), glob="**/*.pdf", show_progress=True)
     documents = loader.load()
-
-    # documents = []
-    # for source_doc in st.session_state.source_docs:
-    #     print(source_doc.name())
-    #     print(source_doc.read())
-    #     # llama_parser = llama_document_parser(parsing_ins=promptTemplateHandler.llamaparsePrompt())
-    #     # # llamaparse to extract documents
-    #     # json_list = llama_parser.document_processing_llamaparse(file_name=f"{source_doc.name}",
-    #     #                             image_output_folder="/tmp")
-    #     # texts,tables,text_concat = llama_parser.categorize_elements(json_list)
-    #     # documents.append(text_concat)
     return documents
 
 
@@ -118,13 +178,6 @@ def extract_LO(retriever, query):
 
 
 def query_llm(retriever, query):
-    # qa_chain = ConversationalRetrievalChain.from_llm(
-    #     llm=ChatOpenAI(model="gpt-4o-mini",temperature=0),
-    #     retriever=retriever,
-    #     return_source_documents=True,
-    # )
-    # result = qa_chain({'question': query, 'chat_history': st.session_state.messages})
-    # result = result['answer']
 
     langfuse_handler = CallbackHandler()
     llm = ChatOpenAI(
@@ -135,14 +188,7 @@ def query_llm(retriever, query):
         max_retries=2,
         openai_api_key=st.session_state.openai_api_key,
     )
-    # llm_chat = ChatOpenAI(
-    #     model="gpt-4o-mini",
-    #     temperature=0,
-    #     max_tokens=None,
-    #     timeout=None,
-    #     max_retries=2,
-    #     openai_api_key=st.session_state.openai_api_key,
-    # )
+
     prompt = ChatPromptTemplate.from_messages(
         [
             (
@@ -215,6 +261,61 @@ def process_documents():
             st.session_state.retriever = embeddings_on_local_vectordb(all_doc_text)
         except Exception as e:
             st.error(f"An error occurred: {e}")
+
+
+def KM_API_LO_generation(LO_dictionary):
+    session_id = create_session(KM_LO_Generation_ID)
+    if session_id:
+        # Response_length = "Respond in 1000 words and 6 paragraphs"
+        if send_message(
+            KM_LO_Generation_ID,
+            session_id,
+            f""" Generate learning outcome in the JSON format for a course about {LO_dictionary["course_topic"]} for {LO_dictionary["target_audience"]}.
+                        Other provided details:
+                        Other provided details:
+                        course_description : {LO_dictionary["course_description"]}
+                        pre_requisites: {LO_dictionary["pre_requisites"]}
+                        allocated_time: {LO_dictionary["allocated_time"]}
+                        language: {LO_dictionary["language"]}
+                        """,
+        ):
+            response = fetch_response(KM_LO_Generation_ID, session_id)
+            # logging.info(f"Bot Response: {response}")
+
+            # Print output in Markdown with wrapping
+            print("### Bot Response in Markdown Format")
+            print("```markdown")
+            print(response)
+            print("```")
+        return response
+
+
+def KM_API_CS_generation(CS_dictionary, LO_generated_context):
+    session_id = create_session(KM_CourseStructure_Generation_ID)
+    if session_id:
+        # Response_length = "Respond in 1000 words and 6 paragraphs"
+        if send_message(
+            KM_CourseStructure_Generation_ID,
+            session_id,
+            f"""Create course structure using the learning outcome and details below:
+                        {LO_generated_context}
+
+                        Other provided details:
+                        course_description : {CS_dictionary["course_description"]}
+                        pre_requisites: {CS_dictionary["pre_requisites"]}
+                        allocated_time: {CS_dictionary["allocated_time"]}
+                        language: {CS_dictionary["language"]}
+                        """,
+        ):
+            response = fetch_response(KM_CourseStructure_Generation_ID, session_id)
+            # logging.info(f"Bot Response: {response}")
+
+            # Print output in Markdown with wrapping
+            print("### Bot Response in Markdown Format")
+            print("```markdown")
+            print(response)
+            print("```")
+            return response
 
 
 def chat_widget():
@@ -336,6 +437,7 @@ def course_input():
                     "Turkish (Türkçe)",
                     "Vietnamese (Tiếng Việt)",
                 ),
+                index=4,
                 **params,
             )
 
@@ -343,6 +445,8 @@ def course_input():
         submitButton = st.form_submit_button(label="Generate learning outcomes")
         if submitButton:
             if len(st.session_state.source_docs) >= 1:
+
+                # Retrieval part might not be needed anymore?
                 extraction_query = f"""
                     Extract learning outcomes that is related to {course_description} on the topic of {course_topic}
                 """
@@ -393,7 +497,7 @@ def course_input():
                     config={"callbacks": [langfuse_handler]},
                 )
 
-                # Another layer of response.
+                # Another layer of response to confirm the context relevancy (Not sure is needed as well for this part.)
                 question_prompt = ChatPromptTemplate.from_messages(
                     [
                         (
@@ -432,22 +536,26 @@ def course_input():
                 if "Yes" in response_confirmation.content:
                     # prompt_text_input = prompt_template_with_context
                     settings["context"] = RAG_final_response.content
+
             st.subheader("Retrieve context", divider="gray")
             st.info(
                 settings["context"],
                 icon="ℹ️",
             )
+
             settings["course_topic"] = course_topic
             settings["course_description"] = course_description
             settings["target_audience"] = target_audience
             settings["pre_requisites"] = pre_requisites
             settings["allocated_time"] = allocated_time
             settings["language"] = language_selected
+
             GENERATE_TOC_PROMPT = f"""
             {prompt_text_input}
             """
             generate_toc_prompt = ChatPromptTemplate.from_template(GENERATE_TOC_PROMPT)
             toc_chain = generate_toc_prompt | chat_model | StrOutputParser()
+
             st.subheader("Generated Learning Outcomes", divider="gray")
             learningOutcomeGeneration = toc_chain.invoke(
                 settings, config={"callbacks": [langfuse_handler]}
@@ -456,6 +564,13 @@ def course_input():
                 learningOutcomeGeneration,
                 icon="ℹ️",
             )
+
+            # st.subheader("LO Generation - By KM", divider="gray")
+            # KM_LO_response = KM_API_LO_generation(settings)
+            # st.info(
+            #     KM_LO_response,
+            # icon="ℹ️",
+            # )
             cs_input = {}
             cs_input["course_topic"] = course_topic
             cs_input["course_description"] = course_description
@@ -472,7 +587,17 @@ def course_input():
                 GENERATE_COURSE_STRUCTURE_PROMPT_IRINA
             )
             cs_chain = generate_CS_prompt | chat_model | StrOutputParser()
+
+            # Currently removed in streamlit cloud due to test stand only available internally.
+            # st.subheader("Course structure - By KM", divider="gray")
+            # KM_CS_response = KM_API_CS_generation(cs_input,KM_LO_response)
+            # st.info(
+            #    KM_CS_response,
+            #    icon="ℹ️",
+            # )
+
             st.subheader("Course structure - By Irina", divider="gray")
+
             CourseStructureGenerationIrina = cs_chain.invoke(
                 cs_input, config={"callbacks": [langfuse_handler]}
             )
