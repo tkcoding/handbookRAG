@@ -44,10 +44,15 @@ LOCAL_VECTOR_STORE_DIR = (
 st.set_page_config(page_title="Course Generation Application")
 
 ### For KM API
-KM_LO_Generation_ID = ""
-KM_CourseStructure_Generation_ID = ""
+KM_LO_Generation_ID = "1090c2405cf14c7d90e36d60a8dad625"
+KM_CourseStructure_Generation_ID = "f0848c18a45b4f17b5fcce40f8eebb2e"
 
-key_data = {"id": "", "key": "", "name": "my-key", "created_at": ""}
+key_data = {
+    "id": "ce39f548529e47f8be39c8b98656b20d",
+    "key": "YEMWttnLWZkpSj8cHekH8hE8rYpxkCkaVF3W6O1y6SjGYxmDxOIt3LEUCh7bVIJq",
+    "name": "api-key",
+    "created_at": "2025-01-09T07:40:28.827682Z",
+}
 
 # Configuration
 API_URL = "https://test-constructor.dev/api/platform-kmapi/v1"  # Use the correct base URL from the API specification

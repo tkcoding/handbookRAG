@@ -90,9 +90,7 @@ class promptTemplate(object):
             Learning Outcome : Remember the fundamental concepts of matrix operations, including addition, subtraction, and multiplication.
             Reasoning : This outcome is essential as it establishes a foundational understanding of matrix operations, which are critical for further applications in electrical engineering.
         LO3: ...
-        For each learning outcome (LO) add reasoning, why this learning outcome is important in this course.
-
-"""
+        For each learning outcome (LO) add reasoning, why this learning outcome is important in this course."""
 
     def LORephraseBetaPrompt(self) -> str:
         return """
@@ -184,13 +182,13 @@ class promptTemplate(object):
                     - Agenda :
                         - Lessons : Key Matrix Terms
                         - Agenda :
-                        - Learning outcomes associated : (LO1) Define basic matrix operations such as addition, subtraction, and multiplication.
+                        - Learning outcomes associated : LO1
                     - Topics : Matrix Operations
                     - Agenda :
                         - Lessons : Significance of Matrix Operations
                         - Agenda :
-                        - Learning outcomes associated : (LO..) ...
-                                                       : (LO..) ...
+                        - Learning outcomes associated : LO2
+                                                       : LO3
 
             Explanation on output structure : Module should be the parents for topics and lessons should be the parents for lessons.
         """
